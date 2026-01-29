@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import TaskItem from "./components/TaskItem";
+import TaskList from "./components/TaskList";
 
 const STORAGE_KEY = "tasks_v1";
 
@@ -67,20 +68,7 @@ export default function App() {
           </button>
         </form>
 
-        <ul style={styles.list}>
-          {tasks.length === 0 ? (
-            <li style={styles.empty}>Nenhuma tarefa ainda.</li>
-          ) : (
-            tasks.map((t) => (
-              <TaskItem
-                key={t.id}
-                task={t}
-                onToggle={toggleTask}
-                onRemove={removeTask}
-              />
-            ))
-          )}
-        </ul>
+        <TaskList tasks={tasks} onToggle={toggleTask} onRemove={removeTask} />
 
         <div style={styles.footer}>
           <button style={styles.linkBtn} onClick={clearDone}>
