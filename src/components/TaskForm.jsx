@@ -2,14 +2,16 @@ import { useState } from "react";
 
 export default function TaskForm({ onAdd }) {
   const [text, setText] = useState("");
+  const [priority, setPriority] = useState("medium");
 
   function handleSubmit(e) {
     e.preventDefault();
     const title = text.trim();
     if (!title) return;
 
-    onAdd(title);
+    onAdd(title, priority);
     setText("");
+    setPriority("medium");
   }
 
   return (
@@ -20,7 +22,19 @@ export default function TaskForm({ onAdd }) {
         placeholder="Adicionar tarefa..."
         style={styles.input}
       />
-      <button style={styles.button} type="submit">
+
+      <select
+        value={priority}
+        onChange={(e) => setPriority(e.target.value)}
+        style={styles.select}
+        aria-label="Prioridade"
+      >
+        <option value="low">Baixa</option>
+        <option value="medium">Média</option>
+        <option value="high">Alta</option>
+      </select>
+
+      <button style={styles.button} type="submit" disabled={!text.trim()}>
         Adicionar
       </button>
     </form>
@@ -33,15 +47,24 @@ const styles = {
     flex: 1,
     padding: "10px 12px",
     borderRadius: 10,
-    border: "1px solid #d1d5db",
+    border: "1px solid var(--border)",
     outline: "none",
+    background: "var(--surface)",
+    color: "var(--text)",
+  },
+  select: {
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text)",
   },
   button: {
     padding: "10px 14px",
     borderRadius: 10,
-    border: "1px solid #111827",
-    background: "#111827",
-    color: "white",
+    border: "1px solid var(--btnBorder)",
+    background: "var(--btnBg)",
+    color: "var(--btnText)",
     cursor: "pointer",
   },
 };

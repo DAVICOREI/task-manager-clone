@@ -28,7 +28,7 @@ const styles = {
     gap: 8,
   },
   empty: {
-    color: "#6b7280",
+    color: "var(--muted)",
     padding: 10,
     margin: 0,
   },
