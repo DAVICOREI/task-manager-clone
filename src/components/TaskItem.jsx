@@ -40,7 +40,6 @@ export default function TaskItem({ task, onToggle, onRemove }) {
 
 function badgeStyle(priority = "medium") {
   const w = PRIORITY_WEIGHT[priority] ?? 2;
-  // só muda intensidade via borda/fundo; mantém simples
   return {
     display: "inline-block",
     marginTop: 4,

@@ -22,7 +22,6 @@ export default function App() {
   });
 
   const [tasks, setTasks] = useState(() => {
-    // Migração: tenta v2; se não existir, cai pro v1 (se você usava)
     try {
       const rawV2 = localStorage.getItem(STORAGE_TASKS);
       if (rawV2) return migrateTasks(JSON.parse(rawV2));
@@ -36,7 +35,6 @@ export default function App() {
     }
   });
 
-  // Persistências
   useEffect(() => localStorage.setItem(STORAGE_THEME, theme), [theme]);
   useEffect(() => localStorage.setItem(STORAGE_SORT, sortMode), [sortMode]);
 
@@ -68,7 +66,6 @@ export default function App() {
         );
       }
 
-      // fallback
       return 0;
     });
 
@@ -152,7 +149,6 @@ export default function App() {
   );
 }
 
-// Migra tarefas antigas: garante priority e createdAt
 function migrateTasks(list) {
   if (!Array.isArray(list)) return [];
   return list.map((t) => ({
