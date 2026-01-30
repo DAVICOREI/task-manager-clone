@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import TaskItem from "./components/TaskItem";
 import TaskList from "./components/TaskList";
+import TaskForm from "./components/TaskForm";
 
 const STORAGE_KEY = "tasks_v1";
 
@@ -9,7 +9,6 @@ function uid() {
 }
 
 export default function App() {
-  const [text, setText] = useState("");
   const [tasks, setTasks] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -25,13 +24,8 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
   }, [tasks]);
 
-  function addTask(e) {
-    e.preventDefault();
-    const title = text.trim();
-    if (!title) return;
-
+  function addTaskTitle(title) {
     setTasks((prev) => [{ id: uid(), title, done: false }, ...prev]);
-    setText("");
   }
 
   function toggleTask(id) {
@@ -56,17 +50,7 @@ export default function App() {
           {remaining} pendente{remaining === 1 ? "" : "s"}
         </p>
 
-        <form onSubmit={addTask} style={styles.form}>
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Adicionar tarefa..."
-            style={styles.input}
-          />
-          <button style={styles.button} type="submit">
-            Adicionar
-          </button>
-        </form>
+        <TaskForm onAdd={addTaskTitle} />
 
         <TaskList tasks={tasks} onToggle={toggleTask} onRemove={removeTask} />
 
@@ -97,44 +81,6 @@ const styles = {
   },
   title: { margin: 0, fontSize: 28 },
   subtitle: { marginTop: 6, marginBottom: 18, color: "#6b7280" },
-  form: { display: "flex", gap: 8, marginBottom: 14 },
-  input: {
-    flex: 1,
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid #d1d5db",
-    outline: "none",
-  },
-  button: {
-    padding: "10px 14px",
-    borderRadius: 10,
-    border: "1px solid #111827",
-    background: "#111827",
-    color: "white",
-    cursor: "pointer",
-  },
-  list: { listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 },
-  item: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    padding: "10px 12px",
-    borderRadius: 12,
-    border: "1px solid #e5e7eb",
-  },
-  label: { display: "flex", alignItems: "center", gap: 10 },
-  task: { userSelect: "none" },
-  done: { textDecoration: "line-through", color: "#6b7280" },
-  delete: {
-    padding: "8px 10px",
-    borderRadius: 10,
-    border: "1px solid #ef4444",
-    background: "white",
-    color: "#ef4444",
-    cursor: "pointer",
-  },
-  empty: { color: "#6b7280", padding: 10 },
   footer: { marginTop: 12, display: "flex", justifyContent: "flex-end" },
   linkBtn: {
     border: "none",
