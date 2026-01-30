@@ -1,7 +1,7 @@
 import TaskItem from "./TaskItem";
 
 export default function TaskList({ tasks, onToggle, onRemove }) {
-  if (tasks.length === 0) {
+  if (!tasks || tasks.length === 0) {
     return <p style={styles.empty}>Nenhuma tarefa ainda.</p>;
   }
 
@@ -30,5 +30,6 @@ const styles = {
   empty: {
     color: "#6b7280",
     padding: 10,
+    margin: 0,
   },
 };
