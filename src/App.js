@@ -1,4 +1,3 @@
-// src/App.js
 import { useEffect, useMemo, useState } from "react";
 import TaskList from "./components/TaskList";
 import TaskForm from "./components/TaskForm";
@@ -24,7 +23,7 @@ export default function App() {
   });
 
   const [filterMode, setFilterMode] = useState(() => {
-    return localStorage.getItem(STORAGE_FILTER) || "all"; // all | active | done
+    return localStorage.getItem(STORAGE_FILTER) || "all";
   });
 
   const [tasks, setTasks] = useState(() => {
@@ -41,7 +40,6 @@ export default function App() {
     }
   });
 
-  // Persistências
   useEffect(() => localStorage.setItem(STORAGE_THEME, theme), [theme]);
   useEffect(() => localStorage.setItem(STORAGE_SORT, sortMode), [sortMode]);
   useEffect(
@@ -53,13 +51,11 @@ export default function App() {
     localStorage.setItem(STORAGE_TASKS, JSON.stringify(tasks));
   }, [tasks]);
 
-  // Contadores globais
   const remaining = useMemo(() => tasks.filter((t) => !t.done).length, [tasks]);
 
   const totalCount = tasks.length;
   const doneCount = totalCount - remaining;
 
-  // Contadores por prioridade (considerando SOMENTE pendentes)
   const activeByPriority = useMemo(() => {
     const acc = { low: 0, medium: 0, high: 0 };
     for (const t of tasks) {
@@ -77,7 +73,6 @@ export default function App() {
     return acc;
   }, [tasks]);
 
-  // Ordenação (sobre todas as tasks)
   const sortedTasks = useMemo(() => {
     const copy = [...tasks];
 
@@ -106,7 +101,6 @@ export default function App() {
     return copy;
   }, [tasks, sortMode]);
 
-  // Filtro (aplicado APÓS ordenar)
   const visibleTasks = useMemo(() => {
     if (filterMode === "active") return sortedTasks.filter((t) => !t.done);
     if (filterMode === "done") return sortedTasks.filter((t) => t.done);
@@ -136,6 +130,15 @@ export default function App() {
 
   function toggleTheme() {
     setTheme((t) => (t === "dark" ? "light" : "dark"));
+  }
+
+  function updateTaskTitle(id, title) {
+    const clean = title.trim();
+    if (!clean) return;
+
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, title: clean } : t)),
+    );
   }
 
   const vars = theme === "dark" ? darkVars : lightVars;
@@ -217,6 +220,7 @@ export default function App() {
           tasks={visibleTasks}
           onToggle={toggleTask}
           onRemove={removeTask}
+          onEdit={updateTaskTitle}
         />
 
         <div style={styles.footer}>
@@ -233,7 +237,6 @@ export default function App() {
   );
 }
 
-// Migra tarefas antigas: garante priority e createdAt
 function migrateTasks(list) {
   if (!Array.isArray(list)) return [];
   return list.map((t) => ({

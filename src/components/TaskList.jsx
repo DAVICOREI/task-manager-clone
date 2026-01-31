@@ -1,6 +1,6 @@
 import TaskItem from "./TaskItem";
 
-export default function TaskList({ tasks, onToggle, onRemove }) {
+export default function TaskList({ tasks, onToggle, onRemove, onEdit }) {
   if (!tasks || tasks.length === 0) {
     return <p style={styles.empty}>Nenhuma tarefa ainda.</p>;
   }
@@ -13,6 +13,7 @@ export default function TaskList({ tasks, onToggle, onRemove }) {
           task={task}
           onToggle={onToggle}
           onRemove={onRemove}
+          onEdit={onEdit}
         />
       ))}
     </ul>

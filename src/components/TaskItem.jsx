@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 const PRIORITY_LABEL = {
   low: "Baixa",
   medium: "Média",
@@ -10,7 +12,41 @@ const PRIORITY_WEIGHT = {
   high: 3,
 };
 
-export default function TaskItem({ task, onToggle, onRemove }) {
+export default function TaskItem({ task, onToggle, onRemove, onEdit }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(task.title);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (!isEditing) setDraft(task.title);
+  }, [task.title, isEditing]);
+
+  useEffect(() => {
+    if (isEditing) inputRef.current?.focus();
+  }, [isEditing]);
+
+  function startEdit() {
+    setIsEditing(true);
+    setDraft(task.title);
+  }
+
+  function cancelEdit() {
+    setIsEditing(false);
+    setDraft(task.title);
+  }
+
+  function saveEdit() {
+    const clean = draft.trim();
+    if (!clean) return; // não salva vazio
+    if (clean !== task.title) onEdit?.(task.id, clean);
+    setIsEditing(false);
+  }
+
+  function onKeyDown(e) {
+    if (e.key === "Enter") saveEdit();
+    if (e.key === "Escape") cancelEdit();
+  }
+
   return (
     <li style={styles.item}>
       <label style={styles.label}>
@@ -21,9 +57,20 @@ export default function TaskItem({ task, onToggle, onRemove }) {
         />
 
         <div style={styles.textBlock}>
-          <span style={{ ...styles.text, ...(task.done ? styles.done : {}) }}>
-            {task.title}
-          </span>
+          {!isEditing ? (
+            <span style={{ ...styles.text, ...(task.done ? styles.done : {}) }}>
+              {task.title}
+            </span>
+          ) : (
+            <input
+              ref={inputRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={onKeyDown}
+              style={styles.editInput}
+              aria-label="Editar tarefa"
+            />
+          )}
 
           <span style={badgeStyle(task.priority)}>
             Prioridade: {PRIORITY_LABEL[task.priority] ?? "Média"}
@@ -31,9 +78,30 @@ export default function TaskItem({ task, onToggle, onRemove }) {
         </div>
       </label>
 
-      <button style={styles.delete} onClick={() => onRemove(task.id)}>
-        Remover
-      </button>
+      <div style={styles.actions}>
+        {!isEditing ? (
+          <button style={styles.editBtn} onClick={startEdit}>
+            Editar
+          </button>
+        ) : (
+          <>
+            <button
+              style={styles.saveBtn}
+              onClick={saveEdit}
+              disabled={!draft.trim()}
+            >
+              Salvar
+            </button>
+            <button style={styles.cancelBtn} onClick={cancelEdit}>
+              Cancelar
+            </button>
+          </>
+        )}
+
+        <button style={styles.delete} onClick={() => onRemove(task.id)}>
+          Remover
+        </button>
+      </div>
     </li>
   );
 }
@@ -69,9 +137,49 @@ const styles = {
     background: "var(--surface)",
   },
   label: { display: "flex", alignItems: "center", gap: 10, flex: 1 },
-  textBlock: { display: "flex", flexDirection: "column" },
+  textBlock: { display: "flex", flexDirection: "column", flex: 1 },
+
   text: { userSelect: "none" },
   done: { textDecoration: "line-through", color: "var(--muted)" },
+
+  editInput: {
+    padding: "8px 10px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--card)",
+    color: "var(--text)",
+    outline: "none",
+    width: "100%",
+    maxWidth: 320,
+  },
+
+  actions: { display: "flex", alignItems: "center", gap: 8 },
+
+  editBtn: {
+    padding: "8px 10px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "transparent",
+    color: "var(--text)",
+    cursor: "pointer",
+  },
+  saveBtn: {
+    padding: "8px 10px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text)",
+    cursor: "pointer",
+  },
+  cancelBtn: {
+    padding: "8px 10px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "transparent",
+    color: "var(--muted)",
+    cursor: "pointer",
+  },
+
   delete: {
     padding: "8px 10px",
     borderRadius: 10,
