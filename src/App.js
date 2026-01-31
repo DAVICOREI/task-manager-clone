@@ -1,3 +1,4 @@
+// src/App.js
 import { useEffect, useMemo, useState } from "react";
 import TaskList from "./components/TaskList";
 import TaskForm from "./components/TaskForm";
@@ -5,6 +6,7 @@ import TaskForm from "./components/TaskForm";
 const STORAGE_TASKS = "tasks_v2";
 const STORAGE_THEME = "theme_v1";
 const STORAGE_SORT = "sort_v1";
+const STORAGE_FILTER = "filter_v1";
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -21,6 +23,10 @@ export default function App() {
     return localStorage.getItem(STORAGE_SORT) || "created_desc";
   });
 
+  const [filterMode, setFilterMode] = useState(() => {
+    return localStorage.getItem(STORAGE_FILTER) || "all"; // all | active | done
+  });
+
   const [tasks, setTasks] = useState(() => {
     try {
       const rawV2 = localStorage.getItem(STORAGE_TASKS);
@@ -35,15 +41,43 @@ export default function App() {
     }
   });
 
+  // Persistências
   useEffect(() => localStorage.setItem(STORAGE_THEME, theme), [theme]);
   useEffect(() => localStorage.setItem(STORAGE_SORT, sortMode), [sortMode]);
+  useEffect(
+    () => localStorage.setItem(STORAGE_FILTER, filterMode),
+    [filterMode],
+  );
 
   useEffect(() => {
     localStorage.setItem(STORAGE_TASKS, JSON.stringify(tasks));
   }, [tasks]);
 
+  // Contadores globais
   const remaining = useMemo(() => tasks.filter((t) => !t.done).length, [tasks]);
 
+  const totalCount = tasks.length;
+  const doneCount = totalCount - remaining;
+
+  // Contadores por prioridade (considerando SOMENTE pendentes)
+  const activeByPriority = useMemo(() => {
+    const acc = { low: 0, medium: 0, high: 0 };
+    for (const t of tasks) {
+      if (t.done) continue;
+      if (
+        t.priority === "low" ||
+        t.priority === "medium" ||
+        t.priority === "high"
+      ) {
+        acc[t.priority] += 1;
+      } else {
+        acc.medium += 1;
+      }
+    }
+    return acc;
+  }, [tasks]);
+
+  // Ordenação (sobre todas as tasks)
   const sortedTasks = useMemo(() => {
     const copy = [...tasks];
 
@@ -71,6 +105,13 @@ export default function App() {
 
     return copy;
   }, [tasks, sortMode]);
+
+  // Filtro (aplicado APÓS ordenar)
+  const visibleTasks = useMemo(() => {
+    if (filterMode === "active") return sortedTasks.filter((t) => !t.done);
+    if (filterMode === "done") return sortedTasks.filter((t) => t.done);
+    return sortedTasks;
+  }, [sortedTasks, filterMode]);
 
   function addTaskTitle(title, priority = "medium") {
     setTasks((prev) => [
@@ -106,8 +147,16 @@ export default function App() {
           <div>
             <h1 style={styles.title}>Task Manager</h1>
             <p style={styles.subtitle}>
-              {remaining} pendente{remaining === 1 ? "" : "s"}
+              {remaining} pendente{remaining === 1 ? "" : "s"} • {doneCount}{" "}
+              concluída
+              {doneCount === 1 ? "" : "s"} • {totalCount} total
             </p>
+
+            <div style={styles.priorityRow}>
+              <span style={styles.pill}>Alta: {activeByPriority.high}</span>
+              <span style={styles.pill}>Média: {activeByPriority.medium}</span>
+              <span style={styles.pill}>Baixa: {activeByPriority.low}</span>
+            </div>
           </div>
 
           <button style={styles.themeBtn} onClick={toggleTheme}>
@@ -116,6 +165,37 @@ export default function App() {
         </header>
 
         <div style={styles.toolbar}>
+          <div style={styles.filters}>
+            <button
+              style={
+                filterMode === "all" ? styles.filterBtnActive : styles.filterBtn
+              }
+              onClick={() => setFilterMode("all")}
+            >
+              Todas
+            </button>
+            <button
+              style={
+                filterMode === "active"
+                  ? styles.filterBtnActive
+                  : styles.filterBtn
+              }
+              onClick={() => setFilterMode("active")}
+            >
+              Pendentes
+            </button>
+            <button
+              style={
+                filterMode === "done"
+                  ? styles.filterBtnActive
+                  : styles.filterBtn
+              }
+              onClick={() => setFilterMode("done")}
+            >
+              Concluídas
+            </button>
+          </div>
+
           <label style={styles.toolbarLabel}>
             Ordenação:
             <select
@@ -134,13 +214,17 @@ export default function App() {
         <TaskForm onAdd={addTaskTitle} />
 
         <TaskList
-          tasks={sortedTasks}
+          tasks={visibleTasks}
           onToggle={toggleTask}
           onRemove={removeTask}
         />
 
         <div style={styles.footer}>
-          <button style={styles.linkBtn} onClick={clearDone}>
+          <button
+            style={styles.linkBtn}
+            onClick={clearDone}
+            disabled={doneCount === 0}
+          >
             Limpar concluídas
           </button>
         </div>
@@ -149,6 +233,7 @@ export default function App() {
   );
 }
 
+// Migra tarefas antigas: garante priority e createdAt
 function migrateTasks(list) {
   if (!Array.isArray(list)) return [];
   return list.map((t) => ({
@@ -189,7 +274,17 @@ const styles = {
     marginBottom: 12,
   },
   title: { margin: 0, fontSize: 28 },
-  subtitle: { marginTop: 6, marginBottom: 0, color: "var(--muted)" },
+  subtitle: { marginTop: 6, marginBottom: 8, color: "var(--muted)" },
+
+  priorityRow: { display: "flex", gap: 8, flexWrap: "wrap" },
+  pill: {
+    fontSize: 12,
+    padding: "4px 10px",
+    borderRadius: 999,
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text)",
+  },
 
   themeBtn: {
     padding: "8px 10px",
@@ -201,7 +296,33 @@ const styles = {
     whiteSpace: "nowrap",
   },
 
-  toolbar: { display: "flex", justifyContent: "flex-end", marginBottom: 10 },
+  toolbar: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+    marginBottom: 10,
+  },
+
+  filters: { display: "flex", gap: 8 },
+  filterBtn: {
+    padding: "8px 10px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "transparent",
+    color: "var(--text)",
+    cursor: "pointer",
+  },
+  filterBtnActive: {
+    padding: "8px 10px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text)",
+    cursor: "pointer",
+  },
+
   toolbarLabel: {
     display: "flex",
     alignItems: "center",
@@ -223,6 +344,7 @@ const styles = {
     color: "var(--text)",
     cursor: "pointer",
     textDecoration: "underline",
+    opacity: 1,
   },
 };
 
