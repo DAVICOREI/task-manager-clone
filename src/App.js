@@ -6,6 +6,7 @@ const STORAGE_TASKS = "tasks_v2";
 const STORAGE_THEME = "theme_v1";
 const STORAGE_SORT = "sort_v1";
 const STORAGE_FILTER = "filter_v1";
+const STORAGE_QUERY = "query_v1";
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -14,17 +15,18 @@ function uid() {
 const PRIORITY_WEIGHT = { low: 1, medium: 2, high: 3 };
 
 export default function App() {
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem(STORAGE_THEME) || "light";
-  });
-
-  const [sortMode, setSortMode] = useState(() => {
-    return localStorage.getItem(STORAGE_SORT) || "created_desc";
-  });
-
-  const [filterMode, setFilterMode] = useState(() => {
-    return localStorage.getItem(STORAGE_FILTER) || "all";
-  });
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem(STORAGE_THEME) || "light",
+  );
+  const [sortMode, setSortMode] = useState(
+    () => localStorage.getItem(STORAGE_SORT) || "created_desc",
+  );
+  const [filterMode, setFilterMode] = useState(
+    () => localStorage.getItem(STORAGE_FILTER) || "all",
+  ); // all|active|done
+  const [query, setQuery] = useState(
+    () => localStorage.getItem(STORAGE_QUERY) || "",
+  );
 
   const [tasks, setTasks] = useState(() => {
     try {
@@ -40,22 +42,25 @@ export default function App() {
     }
   });
 
+  // Persistências
   useEffect(() => localStorage.setItem(STORAGE_THEME, theme), [theme]);
   useEffect(() => localStorage.setItem(STORAGE_SORT, sortMode), [sortMode]);
   useEffect(
     () => localStorage.setItem(STORAGE_FILTER, filterMode),
     [filterMode],
   );
+  useEffect(() => localStorage.setItem(STORAGE_QUERY, query), [query]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_TASKS, JSON.stringify(tasks));
   }, [tasks]);
 
-  const remaining = useMemo(() => tasks.filter((t) => !t.done).length, [tasks]);
-
+  // Contadores globais
   const totalCount = tasks.length;
+  const remaining = useMemo(() => tasks.filter((t) => !t.done).length, [tasks]);
   const doneCount = totalCount - remaining;
 
+  // Contadores por prioridade (somente pendentes)
   const activeByPriority = useMemo(() => {
     const acc = { low: 0, medium: 0, high: 0 };
     for (const t of tasks) {
@@ -64,15 +69,14 @@ export default function App() {
         t.priority === "low" ||
         t.priority === "medium" ||
         t.priority === "high"
-      ) {
+      )
         acc[t.priority] += 1;
-      } else {
-        acc.medium += 1;
-      }
+      else acc.medium += 1;
     }
     return acc;
   }, [tasks]);
 
+  // Ordenação
   const sortedTasks = useMemo(() => {
     const copy = [...tasks];
 
@@ -82,18 +86,16 @@ export default function App() {
       if (sortMode === "created_asc")
         return (a.createdAt ?? 0) - (b.createdAt ?? 0);
 
-      if (sortMode === "priority_desc") {
+      if (sortMode === "priority_desc")
         return (
           (PRIORITY_WEIGHT[b.priority] ?? 2) -
           (PRIORITY_WEIGHT[a.priority] ?? 2)
         );
-      }
-      if (sortMode === "priority_asc") {
+      if (sortMode === "priority_asc")
         return (
           (PRIORITY_WEIGHT[a.priority] ?? 2) -
           (PRIORITY_WEIGHT[b.priority] ?? 2)
         );
-      }
 
       return 0;
     });
@@ -101,12 +103,23 @@ export default function App() {
     return copy;
   }, [tasks, sortMode]);
 
-  const visibleTasks = useMemo(() => {
+  // Filtro de status (após ordenar)
+  const filteredByStatus = useMemo(() => {
     if (filterMode === "active") return sortedTasks.filter((t) => !t.done);
     if (filterMode === "done") return sortedTasks.filter((t) => t.done);
     return sortedTasks;
   }, [sortedTasks, filterMode]);
 
+  // Busca por título (após filtro)
+  const visibleTasks = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return filteredByStatus;
+    return filteredByStatus.filter((t) =>
+      (t.title || "").toLowerCase().includes(q),
+    );
+  }, [filteredByStatus, query]);
+
+  // CRUD
   function addTaskTitle(title, priority = "medium") {
     setTasks((prev) => [
       { id: uid(), title, done: false, priority, createdAt: Date.now() },
@@ -117,6 +130,14 @@ export default function App() {
   function toggleTask(id) {
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+    );
+  }
+
+  function updateTaskTitle(id, title) {
+    const clean = title.trim();
+    if (!clean) return;
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, title: clean } : t)),
     );
   }
 
@@ -132,13 +153,8 @@ export default function App() {
     setTheme((t) => (t === "dark" ? "light" : "dark"));
   }
 
-  function updateTaskTitle(id, title) {
-    const clean = title.trim();
-    if (!clean) return;
-
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, title: clean } : t)),
-    );
+  function clearSearch() {
+    setQuery("");
   }
 
   const vars = theme === "dark" ? darkVars : lightVars;
@@ -166,6 +182,24 @@ export default function App() {
             {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
           </button>
         </header>
+
+        {/* Busca */}
+        <div style={styles.searchRow}>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar por título..."
+            style={styles.searchInput}
+            aria-label="Buscar tarefas"
+          />
+          <button
+            style={styles.clearBtn}
+            onClick={clearSearch}
+            disabled={!query.trim()}
+          >
+            Limpar
+          </button>
+        </div>
 
         <div style={styles.toolbar}>
           <div style={styles.filters}>
@@ -216,6 +250,7 @@ export default function App() {
 
         <TaskForm onAdd={addTaskTitle} />
 
+        {/* Lista + edição inline */}
         <TaskList
           tasks={visibleTasks}
           onToggle={toggleTask}
@@ -224,6 +259,11 @@ export default function App() {
         />
 
         <div style={styles.footer}>
+          <div style={styles.footerInfo}>
+            Exibindo {visibleTasks.length} de {totalCount}
+            {query.trim() ? ` • busca: "${query.trim()}"` : ""}
+          </div>
+
           <button
             style={styles.linkBtn}
             onClick={clearDone}
@@ -237,6 +277,7 @@ export default function App() {
   );
 }
 
+// Migra tarefas antigas: garante priority e createdAt
 function migrateTasks(list) {
   if (!Array.isArray(list)) return [];
   return list.map((t) => ({
@@ -299,6 +340,25 @@ const styles = {
     whiteSpace: "nowrap",
   },
 
+  searchRow: { display: "flex", gap: 8, marginBottom: 10 },
+  searchInput: {
+    flex: 1,
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text)",
+    outline: "none",
+  },
+  clearBtn: {
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "transparent",
+    color: "var(--text)",
+    cursor: "pointer",
+  },
+
   toolbar: {
     display: "flex",
     justifyContent: "space-between",
@@ -307,7 +367,6 @@ const styles = {
     flexWrap: "wrap",
     marginBottom: 10,
   },
-
   filters: { display: "flex", gap: 8 },
   filterBtn: {
     padding: "8px 10px",
@@ -340,14 +399,22 @@ const styles = {
     color: "var(--text)",
   },
 
-  footer: { marginTop: 12, display: "flex", justifyContent: "flex-end" },
+  footer: {
+    marginTop: 12,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  footerInfo: { color: "var(--muted)", fontSize: 12 },
+
   linkBtn: {
     border: "none",
     background: "transparent",
     color: "var(--text)",
     cursor: "pointer",
     textDecoration: "underline",
-    opacity: 1,
   },
 };
 
