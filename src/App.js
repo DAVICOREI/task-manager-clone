@@ -23,7 +23,7 @@ export default function App() {
   );
   const [filterMode, setFilterMode] = useState(
     () => localStorage.getItem(STORAGE_FILTER) || "all",
-  ); // all|active|done
+  );
   const [query, setQuery] = useState(
     () => localStorage.getItem(STORAGE_QUERY) || "",
   );
@@ -42,7 +42,6 @@ export default function App() {
     }
   });
 
-  // Persistências
   useEffect(() => localStorage.setItem(STORAGE_THEME, theme), [theme]);
   useEffect(() => localStorage.setItem(STORAGE_SORT, sortMode), [sortMode]);
   useEffect(
@@ -55,12 +54,10 @@ export default function App() {
     localStorage.setItem(STORAGE_TASKS, JSON.stringify(tasks));
   }, [tasks]);
 
-  // Contadores globais
   const totalCount = tasks.length;
   const remaining = useMemo(() => tasks.filter((t) => !t.done).length, [tasks]);
   const doneCount = totalCount - remaining;
 
-  // Contadores por prioridade (somente pendentes)
   const activeByPriority = useMemo(() => {
     const acc = { low: 0, medium: 0, high: 0 };
     for (const t of tasks) {
@@ -76,7 +73,6 @@ export default function App() {
     return acc;
   }, [tasks]);
 
-  // Ordenação
   const sortedTasks = useMemo(() => {
     const copy = [...tasks];
 
@@ -103,14 +99,12 @@ export default function App() {
     return copy;
   }, [tasks, sortMode]);
 
-  // Filtro de status (após ordenar)
   const filteredByStatus = useMemo(() => {
     if (filterMode === "active") return sortedTasks.filter((t) => !t.done);
     if (filterMode === "done") return sortedTasks.filter((t) => t.done);
     return sortedTasks;
   }, [sortedTasks, filterMode]);
 
-  // Busca por título (após filtro)
   const visibleTasks = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return filteredByStatus;
@@ -119,7 +113,6 @@ export default function App() {
     );
   }, [filteredByStatus, query]);
 
-  // CRUD
   function addTaskTitle(title, priority = "medium") {
     setTasks((prev) => [
       { id: uid(), title, done: false, priority, createdAt: Date.now() },
@@ -277,7 +270,6 @@ export default function App() {
   );
 }
 
-// Migra tarefas antigas: garante priority e createdAt
 function migrateTasks(list) {
   if (!Array.isArray(list)) return [];
   return list.map((t) => ({
