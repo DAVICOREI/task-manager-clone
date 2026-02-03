@@ -7,6 +7,7 @@ const STORAGE_THEME = "theme_v1";
 const STORAGE_SORT = "sort_v1";
 const STORAGE_FILTER = "filter_v1";
 const STORAGE_QUERY = "query_v1";
+const STORAGE_PAGE_SIZE = "page_size_v1";
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -27,6 +28,12 @@ export default function App() {
   const [query, setQuery] = useState(
     () => localStorage.getItem(STORAGE_QUERY) || "",
   );
+  const [pageSize, setPageSize] = useState(() => {
+    const raw = localStorage.getItem(STORAGE_PAGE_SIZE);
+    const n = raw ? Number(raw) : 10;
+    return Number.isFinite(n) && n > 0 ? n : 10;
+  });
+  const [page, setPage] = useState(1);
 
   const [tasks, setTasks] = useState(() => {
     try {
@@ -49,10 +56,18 @@ export default function App() {
     [filterMode],
   );
   useEffect(() => localStorage.setItem(STORAGE_QUERY, query), [query]);
+  useEffect(
+    () => localStorage.setItem(STORAGE_PAGE_SIZE, String(pageSize)),
+    [pageSize],
+  );
 
   useEffect(() => {
     localStorage.setItem(STORAGE_TASKS, JSON.stringify(tasks));
   }, [tasks]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, filterMode, sortMode, pageSize]);
 
   const totalCount = tasks.length;
   const remaining = useMemo(() => tasks.filter((t) => !t.done).length, [tasks]);
@@ -105,7 +120,7 @@ export default function App() {
     return sortedTasks;
   }, [sortedTasks, filterMode]);
 
-  const visibleTasks = useMemo(() => {
+  const filteredByQuery = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return filteredByStatus;
     return filteredByStatus.filter((t) =>
@@ -113,6 +128,21 @@ export default function App() {
     );
   }, [filteredByStatus, query]);
 
+  const totalFiltered = filteredByQuery.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+
+  useEffect(() => {
+    setPage((p) => Math.min(Math.max(1, p), totalPages));
+  }, [totalPages]);
+
+  const pageStartIndex = (page - 1) * pageSize;
+  const pageEndIndex = Math.min(pageStartIndex + pageSize, totalFiltered);
+
+  const visibleTasks = useMemo(() => {
+    return filteredByQuery.slice(pageStartIndex, pageEndIndex);
+  }, [filteredByQuery, pageStartIndex, pageEndIndex]);
+
+  // CRUD
   function addTaskTitle(title, priority = "medium") {
     setTasks((prev) => [
       { id: uid(), title, done: false, priority, createdAt: Date.now() },
@@ -150,6 +180,14 @@ export default function App() {
     setQuery("");
   }
 
+  function prevPage() {
+    setPage((p) => Math.max(1, p - 1));
+  }
+
+  function nextPage() {
+    setPage((p) => Math.min(totalPages, p + 1));
+  }
+
   const vars = theme === "dark" ? darkVars : lightVars;
 
   return (
@@ -160,8 +198,7 @@ export default function App() {
             <h1 style={styles.title}>Task Manager</h1>
             <p style={styles.subtitle}>
               {remaining} pendente{remaining === 1 ? "" : "s"} • {doneCount}{" "}
-              concluída
-              {doneCount === 1 ? "" : "s"} • {totalCount} total
+              concluída{doneCount === 1 ? "" : "s"} • {totalCount} total
             </p>
 
             <div style={styles.priorityRow}>
@@ -226,19 +263,35 @@ export default function App() {
             </button>
           </div>
 
-          <label style={styles.toolbarLabel}>
-            Ordenação:
-            <select
-              value={sortMode}
-              onChange={(e) => setSortMode(e.target.value)}
-              style={styles.select}
-            >
-              <option value="created_desc">Mais recentes</option>
-              <option value="created_asc">Mais antigas</option>
-              <option value="priority_desc">Prioridade alta → baixa</option>
-              <option value="priority_asc">Prioridade baixa → alta</option>
-            </select>
-          </label>
+          <div style={styles.rightControls}>
+            <label style={styles.toolbarLabel}>
+              Ordenação:
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value)}
+                style={styles.select}
+              >
+                <option value="created_desc">Mais recentes</option>
+                <option value="created_asc">Mais antigas</option>
+                <option value="priority_desc">Prioridade alta → baixa</option>
+                <option value="priority_asc">Prioridade baixa → alta</option>
+              </select>
+            </label>
+
+            <label style={styles.toolbarLabel}>
+              Por página:
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                style={styles.select}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         <TaskForm onAdd={addTaskTitle} />
@@ -251,12 +304,36 @@ export default function App() {
           onEdit={updateTaskTitle}
         />
 
-        <div style={styles.footer}>
-          <div style={styles.footerInfo}>
-            Exibindo {visibleTasks.length} de {totalCount}
+        {/* Paginação */}
+        <div style={styles.pagination}>
+          <div style={styles.pageInfo}>
+            Exibindo {totalFiltered === 0 ? 0 : pageStartIndex + 1}–
+            {pageEndIndex} de {totalFiltered}
             {query.trim() ? ` • busca: "${query.trim()}"` : ""}
           </div>
 
+          <div style={styles.pageButtons}>
+            <button
+              style={styles.pageBtn}
+              onClick={prevPage}
+              disabled={page <= 1}
+            >
+              Anterior
+            </button>
+            <span style={styles.pageNum}>
+              Página {page} / {totalPages}
+            </span>
+            <button
+              style={styles.pageBtn}
+              onClick={nextPage}
+              disabled={page >= totalPages}
+            >
+              Próxima
+            </button>
+          </div>
+        </div>
+
+        <div style={styles.footer}>
           <button
             style={styles.linkBtn}
             onClick={clearDone}
@@ -377,6 +454,7 @@ const styles = {
     cursor: "pointer",
   },
 
+  rightControls: { display: "flex", gap: 10, flexWrap: "wrap" },
   toolbarLabel: {
     display: "flex",
     alignItems: "center",
@@ -391,16 +469,29 @@ const styles = {
     color: "var(--text)",
   },
 
-  footer: {
+  pagination: {
     marginTop: 12,
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     gap: 10,
     flexWrap: "wrap",
+    paddingTop: 10,
+    borderTop: "1px solid var(--border)",
   },
-  footerInfo: { color: "var(--muted)", fontSize: 12 },
+  pageInfo: { color: "var(--muted)", fontSize: 12 },
+  pageButtons: { display: "flex", alignItems: "center", gap: 10 },
+  pageBtn: {
+    padding: "8px 10px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "transparent",
+    color: "var(--text)",
+    cursor: "pointer",
+  },
+  pageNum: { color: "var(--muted)", fontSize: 12 },
 
+  footer: { marginTop: 12, display: "flex", justifyContent: "flex-end" },
   linkBtn: {
     border: "none",
     background: "transparent",
